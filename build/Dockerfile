@@ -18,7 +18,7 @@ WORKDIR /home
 COPY go.mod go.sum ./
 
 RUN go mod download &&\
-    go mod verify
+  go mod verify
 
 # Copy the source code.
 COPY cmd ./cmd
@@ -32,6 +32,23 @@ RUN go build -o gotenberg -ldflags "-X 'github.com/gotenberg/gotenberg/v7/cmd.Ve
 FROM debian:12-slim
 
 ARG GOTENBERG_VERSION
+
+LABEL author="Julien Neuhart" \
+  description="A Docker-powered stateless API for PDF files." \
+  github="https://github.com/gotenberg/gotenberg" \
+  version="$GOTENBERG_VERSION" \
+  website="https://gotenberg.dev"
+
+# Improve fonts subpixel hinting and smoothing.
+# Credits:
+# https://github.com/arachnys/athenapdf/issues/69.
+# https://github.com/arachnys/athenapdf/commit/ba25a8d80a25d08d58865519c4cd8756dc9a336d.
+COPY build/fonts.conf /etc/fonts/conf.d/100-gotenberg.conf
+
+# Simple wrapper around Java and PDFtk.
+COPY build/pdftk.sh /usr/bin/pdftk
+
+# Setup the Docker image.
 ARG GOTENBERG_USER_GID
 ARG GOTENBERG_USER_UID
 ARG NOTO_COLOR_EMOJI_VERSION
@@ -203,4 +220,5 @@ WORKDIR /home/gotenberg
 EXPOSE 3000
 
 ENTRYPOINT [ "/usr/bin/tini", "--" ]
+# CMD [ "gotenberg", "--api-port-from-env", "PORT" ]
 CMD [ "gotenberg" ]
