@@ -17,6 +17,7 @@ GOLANGCI_LINT_VERSION=v1.54.2 # See https://github.com/golangci/golangci-lint/re
 .PHONY: build
 build: ## Build the Gotenberg's Docker image
 	docker buildx build \
+	--load \
 	--platform linux/amd64 \
 	--build-arg GOLANG_VERSION=$(GOLANG_VERSION) \
 	--build-arg GOTENBERG_VERSION=$(GOTENBERG_VERSION) \

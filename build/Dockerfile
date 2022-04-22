@@ -220,5 +220,4 @@ WORKDIR /home/gotenberg
 EXPOSE 3000
 
 ENTRYPOINT [ "/usr/bin/tini", "--" ]
-# CMD [ "gotenberg", "--api-port-from-env", "PORT" ]
 CMD [ "gotenberg" ]
