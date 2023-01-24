@@ -5,9 +5,10 @@ help: ## Show the help
 .PHONY: it
 it: build build-tests ## Initialize the development environment
 
-GOLANG_VERSION=1.18
-DOCKER_REPOSITORY=onebrief
-GOTENBERG_VERSION=7.5.2
+GOLANG_VERSION=1.18.10
+DOCKER_REPOSITORY=ghcr.io/onebrief
+DOCKER_FILE=Dockerfile.bc
+GOTENBERG_VERSION=snapshot
 GOTENBERG_USER_GID=1001
 GOTENBERG_USER_UID=1001
 NOTO_COLOR_EMOJI_VERSION=v2.034 # See https://github.com/googlefonts/noto-emoji/releases.
@@ -16,9 +17,7 @@ GOLANGCI_LINT_VERSION=v1.45.0 # See https://github.com/golangci/golangci-lint/re
 
 .PHONY: build
 build: ## Build the Gotenberg's Docker image
-	docker buildx build \
-	--load \
-	--platform linux/amd64 \
+	docker build \
 	--build-arg GOLANG_VERSION=$(GOLANG_VERSION) \
 	--build-arg GOTENBERG_VERSION=$(GOTENBERG_VERSION) \
 	--build-arg GOTENBERG_USER_GID=$(GOTENBERG_USER_GID) \
@@ -26,11 +25,11 @@ build: ## Build the Gotenberg's Docker image
 	--build-arg NOTO_COLOR_EMOJI_VERSION=$(NOTO_COLOR_EMOJI_VERSION) \
 	--build-arg PDFTK_VERSION=$(PDFTK_VERSION) \
 	-t $(DOCKER_REPOSITORY)/gotenberg:$(GOTENBERG_VERSION) \
-	-f build/Dockerfile .
+	-f build/$(DOCKER_FILE) .
 
 GOTENBERG_GRACEFUL_SHUTDOWN_DURATION=30s
 API_PORT=3000
-API_PORT_FROM_ENV=PORT
+API_PORT_FROM_ENV=
 API_TIMEOUT=30s
 API_ROOT_PATH=/
 API_TRACE_HEADER=Gotenberg-Trace
