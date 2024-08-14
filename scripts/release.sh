@@ -20,6 +20,7 @@ fi
 docker buildx build \
   --build-arg GOLANG_VERSION="$GOLANG_VERSION" \
   --build-arg GOTENBERG_VERSION="$GOTENBERG_VERSION" \
+  --platform x86_64 \
   --platform linux/amd64 \
   --platform linux/arm64 \
   --platform linux/386 \
