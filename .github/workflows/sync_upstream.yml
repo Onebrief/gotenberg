@@ -1,8 +1,9 @@
 name: Sync Gotenberg Upstream
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron:  '0 6 * * 0'
+  pull_request: {}
+  #schedule:
+  #  - cron:  '0 6 * * 0'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
