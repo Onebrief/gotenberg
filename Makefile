@@ -5,14 +5,14 @@ help: ## Show the help
 .PHONY: it
 it: build build-tests ## Initialize the development environment
 
-GOLANG_VERSION=1.21
+GOLANG_VERSION=1.22
 DOCKER_REPOSITORY=gotenberg
 GOTENBERG_VERSION=snapshot
 GOTENBERG_USER_GID=1001
 GOTENBERG_USER_UID=1001
 NOTO_COLOR_EMOJI_VERSION=v2.042 # See https://github.com/googlefonts/noto-emoji/releases.
 PDFTK_VERSION=v3.3.3 # See https://gitlab.com/pdftk-java/pdftk/-/releases - Binary package.
-GOLANGCI_LINT_VERSION=v1.55.2 # See https://github.com/golangci/golangci-lint/releases.
+GOLANGCI_LINT_VERSION=v1.59.0 # See https://github.com/golangci/golangci-lint/releases.
 
 .PHONY: build
 build: ## Build the Gotenberg's Docker image
@@ -33,6 +33,9 @@ API_START_TIMEOUT=30s
 API_TIMEOUT=30s
 API_ROOT_PATH=/
 API_TRACE_HEADER=Gotenberg-Trace
+API_ENABLE_BASIC_AUTH=false
+GOTENBERG_API_BASIC_AUTH_USERNAME=
+GOTENBERG_API_BASIC_AUTH_PASSWORD=
 API_DISABLE_HEALTH_CHECK_LOGGING=false
 CHROMIUM_RESTART_AFTER=0
 CHROMIUM_MAX_QUEUE_SIZE=0
@@ -79,6 +82,8 @@ WEBHOOK_DISABLE=false
 run: ## Start a Gotenberg container
 	docker run --rm -it \
 	-p $(API_PORT):$(API_PORT) \
+	-e GOTENBERG_API_BASIC_AUTH_USERNAME=$(GOTENBERG_API_BASIC_AUTH_USERNAME) \
+	-e GOTENBERG_API_BASIC_AUTH_PASSWORD=$(GOTENBERG_API_BASIC_AUTH_PASSWORD) \
 	$(DOCKER_REPOSITORY)/gotenberg:$(GOTENBERG_VERSION) \
 	gotenberg \
 	--gotenberg-graceful-shutdown-duration=$(GOTENBERG_GRACEFUL_SHUTDOWN_DURATION) \
@@ -88,6 +93,7 @@ run: ## Start a Gotenberg container
 	--api-timeout=$(API_TIMEOUT) \
 	--api-root-path=$(API_ROOT_PATH) \
 	--api-trace-header=$(API_TRACE_HEADER) \
+	--api-enable-basic-auth=$(API_ENABLE_BASIC_AUTH) \
 	--api-disable-health-check-logging=$(API_DISABLE_HEALTH_CHECK_LOGGING) \
 	--chromium-restart-after=$(CHROMIUM_RESTART_AFTER) \
 	--chromium-auto-start=$(CHROMIUM_AUTO_START) \

@@ -28,6 +28,11 @@ var (
 	// ErrMalformedPageRanges happens if the page ranges option cannot be
 	// interpreted by LibreOffice.
 	ErrMalformedPageRanges = errors.New("page ranges are malformed")
+
+	// ErrCoreDumped happens randomly; sometime a conversion will work as
+	// expected, and some other time the same conversion will fail.
+	// See https://github.com/gotenberg/gotenberg/issues/639.
+	ErrCoreDumped = errors.New("core dumped")
 )
 
 // Api is a module which provides a [Uno] to interact with LibreOffice.
@@ -41,19 +46,127 @@ type Api struct {
 }
 
 // Options gathers available options when converting a document to PDF.
+// See: https://help.libreoffice.org/latest/en-US/text/shared/guide/pdf_params.html.
 type Options struct {
 	// Landscape allows to change the orientation of the resulting PDF.
-	// Optional.
 	Landscape bool
 
 	// PageRanges allows to select the pages to convert.
-	// Optional.
 	PageRanges string
+
+	// ExportFormFields specifies whether form fields are exported as widgets
+	// or only their fixed print representation is exported.
+	ExportFormFields bool
+
+	// AllowDuplicateFieldNames specifies whether multiple form fields exported
+	// are allowed to have the same field name.
+	AllowDuplicateFieldNames bool
+
+	// ExportBookmarks specifies if bookmarks are exported to PDF.
+	ExportBookmarks bool
+
+	// ExportBookmarksToPdfDestination specifies that the bookmarks contained
+	// in the source LibreOffice file should be exported to the PDF file as
+	// Named Destination.
+	ExportBookmarksToPdfDestination bool
+
+	// ExportPlaceholders exports the placeholders fields visual markings only.
+	// The exported placeholder is ineffective.
+	ExportPlaceholders bool
+
+	// ExportNotes specifies if notes are exported to PDF.
+	ExportNotes bool
+
+	// ExportNotesPages specifies if notes pages are exported to PDF.
+	// Notes pages are available in Impress documents only.
+	ExportNotesPages bool
+
+	// ExportOnlyNotesPages specifies, if the property ExportNotesPages is set
+	// to true, if only notes pages are exported to PDF.
+	ExportOnlyNotesPages bool
+
+	// ExportNotesInMargin specifies if notes in margin are exported to PDF.
+	ExportNotesInMargin bool
+
+	// ConvertOooTargetToPdfTarget specifies that the target documents with
+	// .od[tpgs] extension, will have that extension changed to .pdf when the
+	// link is exported to PDF. The source document remains untouched.
+	ConvertOooTargetToPdfTarget bool
+
+	// ExportLinksRelativeFsys specifies that the file system related
+	// hyperlinks (file:// protocol) present in the document will be exported
+	// as relative to the source document location.
+	ExportLinksRelativeFsys bool
+
+	// ExportHiddenSlides exports, for LibreOffice Impress, slides that are not
+	// included in slide shows.
+	ExportHiddenSlides bool
+
+	// SkipEmptyPages specifies that automatically inserted empty pages are
+	// suppressed. This option is active only if storing Writer documents.
+	SkipEmptyPages bool
+
+	// AddOriginalDocumentAsStream specifies that a stream is inserted to the
+	// PDF file which contains the original document for archiving purposes.
+	AddOriginalDocumentAsStream bool
+
+	// SinglePageSheets ignores each sheet’s paper size, print ranges and
+	// shown/hidden status and puts every sheet (even hidden sheets) on exactly
+	// one page.
+	SinglePageSheets bool
+
+	// LosslessImageCompression specifies if images are exported to PDF using
+	// a lossless compression format like PNG or compressed using the JPEG
+	// format.
+	LosslessImageCompression bool
+
+	// Quality specifies the quality of the JPG export. A higher value produces
+	// a higher-quality image and a larger file. Between 1 and 100.
+	Quality int
+
+	// ReduceImageResolution specifies if the resolution of each image is
+	// reduced to the resolution specified by the property MaxImageResolution.
+	ReduceImageResolution bool
+
+	// MaxImageResolution, if the property ReduceImageResolution is set to
+	// true, tells if all images will be reduced to the given value in DPI.
+	// Possible values are: 75, 150, 300, 600 and 1200.
+	MaxImageResolution int
 
 	// PdfFormats allows to convert the resulting PDF to PDF/A-1b, PDF/A-2b,
 	// PDF/A-3b and PDF/UA.
-	// Optional.
 	PdfFormats gotenberg.PdfFormats
+}
+
+// DefaultOptions returns the default values for Options.
+func DefaultOptions() Options {
+	return Options{
+		Landscape:                       false,
+		PageRanges:                      "",
+		ExportFormFields:                true,
+		AllowDuplicateFieldNames:        false,
+		ExportBookmarks:                 true,
+		ExportBookmarksToPdfDestination: false,
+		ExportPlaceholders:              false,
+		ExportNotes:                     false,
+		ExportNotesPages:                false,
+		ExportOnlyNotesPages:            false,
+		ExportNotesInMargin:             false,
+		ConvertOooTargetToPdfTarget:     false,
+		ExportLinksRelativeFsys:         false,
+		ExportHiddenSlides:              false,
+		SkipEmptyPages:                  false,
+		AddOriginalDocumentAsStream:     false,
+		SinglePageSheets:                false,
+		LosslessImageCompression:        false,
+		Quality:                         90,
+		ReduceImageResolution:           false,
+		MaxImageResolution:              300,
+		PdfFormats: gotenberg.PdfFormats{
+			PdfA:  "",
+			PdfUa: false,
+		},
+	}
 }
 
 // Uno is an abstraction on top of the Universal Network Objects API.
@@ -257,23 +370,45 @@ func (a *Api) LibreOffice() (Uno, error) {
 
 // Pdf converts a document to PDF.
 func (a *Api) Pdf(ctx context.Context, logger *zap.Logger, inputPath, outputPath string, options Options) error {
-	return a.supervisor.Run(ctx, logger, func() error {
+	err := a.supervisor.Run(ctx, logger, func() error {
 		return a.libreOffice.pdf(ctx, logger, inputPath, outputPath, options)
 	})
+
+	if err == nil {
+		return nil
+	}
+
+	// See https://github.com/gotenberg/gotenberg/issues/639.
+	if errors.Is(err, ErrCoreDumped) {
+		return a.Pdf(ctx, logger, inputPath, outputPath, options)
+	}
+
+	return fmt.Errorf("supervisor run task: %w", err)
 }
 
 // Extensions returns the file extensions available for conversions.
 // FIXME: don't care, take all on the route level?
 func (a *Api) Extensions() []string {
 	return []string{
+		".123",
+		".602",
+		".abw",
 		".bib",
 		".bmp",
+		".cdr",
+		".cgm",
+		".cmx",
 		".csv",
+		".cwk",
 		".dbf",
 		".dif",
 		".doc",
+		".docm",
 		".docx",
+		".dot",
+		".dotm",
 		".dotx",
+		".dxf",
 		".emf",
 		".eps",
 		".epub",
@@ -281,35 +416,52 @@ func (a *Api) Extensions() []string {
 		".fodp",
 		".fods",
 		".fodt",
+		".fopd",
 		".gif",
+		".htm",
 		".html",
+		".hwp",
 		".jpeg",
 		".jpg",
 		".key",
 		".ltx",
+		".lwp",
+		".mcw",
 		".met",
+		".mml",
+		".mw",
+		".numbers",
 		".odd",
 		".odg",
+		".odm",
 		".odp",
 		".ods",
 		".odt",
 		".otg",
+		".oth",
+		".otp",
 		".ots",
 		".ott",
 		".pages",
 		".pbm",
+		".pcd",
 		".pct",
+		".pcx",
 		".pdb",
 		".pdf",
 		".pgm",
 		".png",
 		".pot",
 		".potm",
+		".potx",
 		".ppm",
 		".pps",
 		".ppt",
+		".pptm",
 		".pptx",
+		".psd",
 		".psw",
+		".pub",
 		".pwp",
 		".pxl",
 		".ras",
@@ -317,8 +469,11 @@ func (a *Api) Extensions() []string {
 		".sda",
 		".sdc",
 		".sdd",
+		".sdp",
 		".sdw",
+		".sgl",
 		".slk",
+		".smf",
 		".stc",
 		".std",
 		".sti",
@@ -328,25 +483,43 @@ func (a *Api) Extensions() []string {
 		".swf",
 		".sxc",
 		".sxd",
+		".sxg",
 		".sxi",
+		".sxm",
 		".sxw",
-		".sxw",
+		".tga",
 		".tif",
 		".tiff",
 		".txt",
+		".uof",
 		".uop",
 		".uos",
 		".uot",
+		".vdx",
 		".vor",
+		".vsd",
+		".vsdm",
+		".vsdx",
+		".wb2",
+		".wk1",
+		".wks",
 		".wmf",
+		".wpd",
+		".wpg",
 		".wps",
+		".xbm",
 		".xhtml",
 		".xls",
+		".xlsb",
+		".xlsm",
 		".xlsx",
 		".xlt",
+		".xltm",
 		".xltx",
+		".xlw",
 		".xml",
 		".xpm",
+		".zabw",
 	}
 }
 
