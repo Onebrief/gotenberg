@@ -101,8 +101,6 @@ jobs:
               -O outputFiles/sample-docx.pdf \
               http://localhost:3000/forms/libreoffice/convert
 
-
-
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.24.0
         with:
