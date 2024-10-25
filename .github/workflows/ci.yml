@@ -21,7 +21,12 @@ permissions:
 jobs:
   build-docker-image:
     name: Docker build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.type == 'arm' && 'ubuntu-arm-22.04-4core' || 'ubuntu-latest' }}
+    strategy:
+      matrix:
+        type:
+          - x86
+          - arm
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -88,12 +93,97 @@ jobs:
           platforms: |
             linux/amd64
 
+      - name: Set outputs
+        id: setout
+        shell: bash
+        run: |
+          echo "image=${{ fromJSON(steps.meta.outputs.json).tags[0] }}" >> $GITHUB_OUTPUT
+          echo "version=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}" >> $GITHUB_OUTPUT
+          echo "date=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}" >> $GITHUB_OUTPUT
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.type }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+  merge:
+    name: Merge
+    runs-on: ubuntu-latest
+    needs:
+      - build-docker-image
+    outputs:
+      image: ${{ steps.setout.outputs.image }}
+      digest: ${{ steps.setout.outputs.digest }}
+      version: ${{ steps.setout.outputs.version }}
+      date: ${{ steps.setout.outputs.date }}
+      pinned-version: ${{ steps.setout.outputs.version }}@${{ steps.setout.outputs.digest }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: harbor.onebrief.tools
+          username: ${{ vars.HARBOR_USER }}
+          password: ${{ secrets.HARBOR_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: harbor.onebrief.tools/onebrief/gotenberg
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        shell: bash
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf 'harbor.onebrief.tools/onebrief/gotenberg@sha256:%s ' *)
+
+      - name: Inspect image
+        id: setout
+        shell: bash
+        run: |
+          docker buildx imagetools inspect harbor.onebrief.tools/onebrief/gotenberg:${{ steps.meta.outputs.version }}
+          echo "image=${{ fromJSON(steps.meta.outputs.json).tags[0] }}" >> $GITHUB_OUTPUT
+          echo "version=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}" >> $GITHUB_OUTPUT
+          echo "date=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}" >> $GITHUB_OUTPUT
+          echo "digest=$(docker buildx imagetools inspect harbor.onebrief.tools/onebrief/gotenberg:${{ steps.meta.outputs.version }} --format "{{json .Manifest}}" | jq -r .digest)" >> $GITHUB_OUTPUT
+  scan-image:
+    needs: [merge]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: harbor.onebrief.tools/onebrief/gotenberg
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.24.0
         with:
-          image-ref: harbor.onebrief.tools/onebrief/gotenberg@${{ steps.build.outputs.imageid }}
+          image-ref: harbor.onebrief.tools/onebrief/gotenberg:${{ steps.meta.outputs.version }}
           scanners: 'vuln'
           format: 'table'
         env:
-          TRIVY_USERNAME: ${{ secrets.HARBOR_RO_USER }}
-          TRIVY_PASSWORD: ${{ secrets.HARBOR_RO_TOKEN }}
+          TRIVY_USERNAME: ${{ vars.HARBOR_USER }}
+          TRIVY_PASSWORD: ${{ secrets.HARBOR_TOKEN }}
