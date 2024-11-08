@@ -88,6 +88,19 @@ jobs:
           platforms: |
             linux/amd64
 
+      - name: Test conversions
+        id: tests
+        uses: addnab/docker-run-action@v3
+        with:
+          image:  harbor.onebrief.tools/onebrief/gotenberg@${{ steps.build.outputs.imageid }}
+          options: -v ${{ github.workspace }}:/tmp
+          run: |
+            wget --method=POST \
+              --header="Content-Type: multipart/form-data" \
+              --body-file=/tmp/.github/testFiles/sample.docx \
+              -O outputFiles/sample-docx.pdf \
+              http://localhost:3000/forms/libreoffice/convert
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.24.0
         continue-on-error: true
