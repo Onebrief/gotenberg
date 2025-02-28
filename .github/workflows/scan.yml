@@ -12,9 +12,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        
+
       - name: Get Latest Release Tag
-        if: ${{ github.event_name == 'schedule' }}
         id: get_latest_release
         uses: actions/github-script@v6
         with:
