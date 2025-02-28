@@ -37,6 +37,8 @@ jobs:
           image: harbor.onebrief.tools/onebrief/gotenberg@${{ steps.get_latest_release.outputs.tag_name }}
           fail-build: true
           cache-db: true
+          output-format: table
+          only-fixed: true
           severity-cutoff: high
       
       - name: Pagerduty Alert
