@@ -1,0 +1,43 @@
+name: scan
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '13 9 * * 1-5'
+jobs:
+  scan-latest-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Latest Release Tag
+        if: ${{ github.event_name == 'schedule' }}
+        id: get_latest_release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: latestRelease } = await github.rest.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            core.setOutput('tag_name', latestRelease.tag_name);
+
+      - name: Login to harbor.onebrief.tools
+        uses: docker/login-action@v2
+        with:
+          registry: harbor.onebrief.tools
+          username: ${{ secrets.HARBOR_USER }}
+          password: ${{ secrets.HARBOR_TOKEN }}
+
+      - name: scan latest release
+        uses: anchore/scan-action@7e1d7c7efead0a0d601d6db77ef537817e3ca6a8
+        with:
+          image: harbor.onebrief.tools/onebrief/gotenberg@${{ steps.get_latest_release.outputs.tag_name }}
+          fail-build: true
+          cache-db: true
+          severity-cutoff: high
+      
+      - name: Pagerduty Alert
+        if: failure()
+        uses: ./.github/actions/slack/vulnerability-message
+        with:
+          slack-channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
+          artifacts-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
