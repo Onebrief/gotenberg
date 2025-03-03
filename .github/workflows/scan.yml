@@ -37,17 +37,19 @@ jobs:
           image: harbor.onebrief.tools/onebrief/gotenberg@${{ steps.get_latest_release.outputs.tag_name }}
           fail-build: true
           cache-db: true
-          output-format: table
+          output-format: json
           only-fixed: true
           by-cve: true
-          output-file: /tmp/report.txt
+          output-file: /tmp/report.json
           severity-cutoff: high
 
-      - name: print report
+      - name: upload report
         if: failure()
-        run: |
-          cat /tmp/report.txt
-      
+        uses: actions/upload-artifact@v4
+        with:
+          name: gotenberg-vulnerability-report
+          path: /tmp/report.json
+
       - name: Pagerduty Alert
         if: failure()
         uses: ./.github/actions/slack/vulnerability-message
