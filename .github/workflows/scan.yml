@@ -34,11 +34,11 @@ jobs:
       - name: scan latest release
         uses: anchore/scan-action@7e1d7c7efead0a0d601d6db77ef537817e3ca6a8
         with:
-          image: harbor.onebrief.tools/onebrief/gotenberg:${{ steps.get_latest_release.outputs.tag_name }}
+          image: "harbor.onebrief.tools/onebrief/gotenberg:${{ steps.get_latest_release.outputs.tag_name }}"
           fail-build: true
+          cache-db: true
           output-format: json
           only-fixed: true
-          by-cve: true
           output-file: /tmp/report.json
           severity-cutoff: high
 
