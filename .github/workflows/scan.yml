@@ -39,6 +39,7 @@ jobs:
           cache-db: true
           output-format: table
           only-fixed: true
+          by-cve: true
           severity-cutoff: high
       
       - name: Pagerduty Alert
