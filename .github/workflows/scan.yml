@@ -36,7 +36,6 @@ jobs:
         with:
           image: harbor.onebrief.tools/onebrief/gotenberg@${{ steps.get_latest_release.outputs.tag_name }}
           fail-build: true
-          cache-db: true
           output-format: json
           only-fixed: true
           by-cve: true
