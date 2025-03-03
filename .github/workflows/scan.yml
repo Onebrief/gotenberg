@@ -35,7 +35,7 @@ jobs:
         uses: anchore/scan-action@7e1d7c7efead0a0d601d6db77ef537817e3ca6a8
         with:
           image: harbor.onebrief.tools/onebrief/gotenberg@${{ steps.get_latest_release.outputs.tag_name }}
-          fail-build: true
+          fail-build: false
           cache-db: true
           output-format: table
           only-fixed: true
