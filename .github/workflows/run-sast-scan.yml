@@ -41,33 +41,6 @@ jobs:
           FOD_USER: ${{ secrets.FOD_USER }}
           FOD_PASSWORD: ${{ secrets.FOD_PAT }}
           FOD_RELEASE: ${{ secrets.FOD_RELEASE_ID }}
-
-      # Java 8 required by ScanCentral Client and FoD Uploader(Univeral CI Tool)
-    #   - name: Setup Java
-    #     uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 #v4.7.1
-    #     with:
-    #       java-version: 1.8
-      
-    #   # ScanCentral Client documentation is located at https://www.microfocus.com/documentation/fortify-software-security-center/ 
-    #   - name: Download Fortify ScanCentral Client
-    #     uses: fortify/gha-setup-scancentral-client@v1
-    #   - name: Package Code + Dependencies
-    #     run: scancentral package -bt none -o package.zip
-      
-    #   # Start Fortify on Demand SAST scan and wait until results complete. For more information on FoDUploader commands, see https://github.com/fod-dev/fod-uploader-java
-    #   - name: Download Fortify on Demand Universal CI Tool
-    #     uses: fortify/gha-setup-fod-uploader@v1
-    #   - name: Perform SAST Scan
-    #     run: java -jar $FOD_UPLOAD_JAR -z package.zip -aurl $FOD_API_URL -purl $FOD_URL -rid "$FOD_RELEASE_ID" -tc "$FOD_TENANT" -uc "$FOD_USER" "$FOD_PAT" $FOD_UPLOADER_OPTS -n "$FOD_UPLOADER_NOTES"
-    #     env: 
-    #       FOD_TENANT: ${{ secrets.FOD_TENANT }}  
-    #       FOD_USER: ${{ secrets.FOD_USER }}
-    #       FOD_PAT: ${{ secrets.FOD_PAT }}
-    #       FOD_RELEASE_ID: ${{ secrets.FOD_RELEASE_ID }}
-    #       FOD_URL: "https://ams.fortify.com/"
-    #       FOD_API_URL: "https://api.ams.fortify.com/"
-    #       FOD_UPLOADER_OPTS: "-ep 2 -pp 0 -I 1 -apf"
-    #       FOD_UPLOADER_NOTES: 'Triggered by GitHub Actions (${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})'
       
       ###
       # These remaining steps require GitHub Enterprise
