@@ -180,3 +180,5 @@ jobs:
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf 'nexus.int.onebrief.tools/onebrief/gotenberg@sha256:%s ' *)
+          docker tag nexus.int.onebrief.tools/onebrief/gotenberg:$DOCKER_METADATA_OUTPUT_VERSION nexus.int.onebrief.tools/onebrief/gotenberg:1.$DOCKER_METADATA_OUTPUT_VERSION
+          docker push nexus.int.onebrief.tools/onebrief/gotenberg:1.$DOCKER_METADATA_OUTPUT_VERSION
