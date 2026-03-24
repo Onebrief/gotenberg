@@ -106,6 +106,10 @@ func (b *chromiumBrowser) Start(logger *zap.Logger) error {
 		chromedp.Flag("disable-dev-shm-usage", true),
 		// See https://github.com/gotenberg/gotenberg/issues/1293.
 		chromedp.Flag("disable-component-update", false),
+        // Disable crash reporter/breakpad to avoid "chrome_crashpad_handler: --database is required"
+        // error in containers with restricted security contexts (e.g., drop ALL capabilities).
+        chromedp.Flag("disable-crash-reporter", true),
+        chromedp.Flag("disable-breakpad", true),
 	)
 
 	if b.arguments.allowInsecureLocalhost {
