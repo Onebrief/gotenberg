@@ -11,7 +11,7 @@ require (
 	github.com/dlclark/regexp2 v1.11.5
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
-	github.com/gomarkdown/markdown v0.0.0-20260217112301-37c66b85d6ab
+	github.com/gomarkdown/markdown v0.0.0-20260411013819-759bbc3e3207
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/labstack/echo/v4 v4.15.0
