@@ -9,3 +9,4 @@ import (
 func main() {
 	gotenbergcmd.Run()
 }
+
