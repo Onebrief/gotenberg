@@ -1,5 +1,5 @@
 ARG GOLANG_VERSION=1.26.4
-ARG GOTENBERG_VERSION=8.33.0
+ARG GOTENBERG_VERSION=8.34.0
 ARG BASE_IMAGE=nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg
 ARG UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
 
