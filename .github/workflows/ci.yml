@@ -71,7 +71,7 @@ jobs:
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 #v5.7.0
         with:
           images: |
-            nexus.int.onebrief.tools/onebrief/gotenberg
+            nexus.int.onebrief.tools/ob/gotenberg
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -91,13 +91,13 @@ jobs:
             UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
           push: true
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=nexus.int.onebrief.tools/onebrief/gotenberg,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=nexus.int.onebrief.tools/ob/gotenberg,push-by-digest=true,name-canonical=true,push=true
 
       - name: Set outputs
         id: setout
         shell: bash
         env:
-          reponame: onebrief/gotenberg-${{ matrix.type }}
+          reponame: ob/gotenberg-${{ matrix.type }}
         run: |
           echo "image=${{ fromJSON(steps.meta.outputs.json).tags[0] }}" >> $GITHUB_OUTPUT
           echo "digestname=${reponame/\//-}" >> $GITHUB_OUTPUT
@@ -121,7 +121,7 @@ jobs:
         id: scan
         continue-on-error: true
         with:
-          image: nexus.int.onebrief.tools/onebrief/gotenberg@${{ steps.build.outputs.digest }}
+          image: nexus.int.onebrief.tools/ob/gotenberg@${{ steps.build.outputs.digest }}
           fail-build: false
           cache-db: true
           severity-cutoff: high
@@ -150,7 +150,7 @@ jobs:
         id: calculate
         shell: bash
         env:
-          reponame: onebrief/gotenberg
+          reponame: ob/gotenberg
         run: |
           echo "digestname=${reponame/\//-}" >> $GITHUB_OUTPUT
 
@@ -175,7 +175,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 #v5.7.0
         with:
-          images: nexus.int.onebrief.tools/onebrief/gotenberg
+          images: nexus.int.onebrief.tools/ob/gotenberg
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -191,4 +191,4 @@ jobs:
         shell: bash
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf 'nexus.int.onebrief.tools/onebrief/gotenberg@sha256:%s ' *)
+            $(printf 'nexus.int.onebrief.tools/ob/gotenberg@sha256:%s ' *)
