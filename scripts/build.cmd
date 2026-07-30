@@ -1,5 +1,6 @@
 set DOCKER_REPO_GH=ghcr.io/onebrief
 set GOTENBERG_VERSION=8.34.0
+set BASE_IMAGE_DIGEST=sha256:3414c4652197669428777a62dce9bba7d4831feb8591a0a880ce26b0641ea9a0
 
 set GOLANG_VERSION=1.26.4
 set DOCKER_REPOSITORY=onebrief
@@ -18,6 +19,7 @@ set PDFTK_VERSION=v3.3.3
 docker build ^
   --build-arg GOLANG_VERSION=%GOLANG_VERSION% ^
   --build-arg GOTENBERG_VERSION=%GOTENBERG_VERSION% ^
+  --build-arg BASE_IMAGE_DIGEST=%BASE_IMAGE_DIGEST% ^
   --platform linux/amd64 ^
   -t %DOCKER_REPO_GH%/gotenberg:%GOTENBERG_VERSION% ^
   -f build/Dockerfile.bc .

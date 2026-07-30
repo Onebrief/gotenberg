@@ -1,6 +1,7 @@
 ARG GOLANG_VERSION=1.26.4
 ARG GOTENBERG_VERSION=8.34.0
 ARG BASE_IMAGE=nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg
+ARG BASE_IMAGE_DIGEST=sha256:3414c4652197669428777a62dce9bba7d4831feb8591a0a880ce26b0641ea9a0
 ARG UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
 
 # ----------------------------------------------
@@ -29,7 +30,7 @@ RUN go build -o gotenberg -ldflags "-X 'github.com/gotenberg/gotenberg/v8/cmd.Ve
 # ----------------------------------------------
 # Copy binary to chainguard base
 # ----------------------------------------------
-FROM $BASE_IMAGE:$GOTENBERG_VERSION AS chainguard-base
+FROM $BASE_IMAGE:$GOTENBERG_VERSION@$BASE_IMAGE_DIGEST AS chainguard-base
 ARG UNOCONVERTER_BIN_PATH
 
 COPY --from=binary-stage /home/gotenberg /usr/bin/
