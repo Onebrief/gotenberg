@@ -10,6 +10,12 @@ build: ## Build the Gotenberg's Docker image
 	-t $(DOCKER_REGISTRY)/$(DOCKER_REPOSITORY):$(GOTENBERG_VERSION) \
 	-f $(DOCKERFILE) $(DOCKER_BUILD_CONTEXT)
 
+.PHONY: build-bc
+build-bc: ## Build the LibreOffice-only Docker image - the one shipped by the ci workflow
+	docker build \
+	-t $(DOCKER_REGISTRY)/$(DOCKER_REPOSITORY):$(GOTENBERG_VERSION)-bc \
+	-f $(DOCKERFILE_BC) $(DOCKER_BUILD_CONTEXT)
+
 TZ=UTC
 GOTENBERG_HIDE_BANNER=false
 GOTENBERG_GRACEFUL_SHUTDOWN_DURATION=30s
@@ -163,6 +169,10 @@ run: ## Start a Gotenberg container
 .PHONY: test-unit
 test-unit: ## Run unit tests
 	go test -race ./...
+
+.PHONY: test-unit-nochromium
+test-unit-nochromium: ## Run unit tests against the Chromium-less build
+	go test -race -tags nochromium ./...
 
 PLATFORM=
 NO_CONCURRENCY=false
