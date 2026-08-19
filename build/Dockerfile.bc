@@ -1,45 +1,12 @@
-# LibreOffice-only Gotenberg image.
-#
-# Compared to upstream Gotenberg, this image:
-#
-#   - compiles the Chromium module out of the binary (the "nochromium" build
-#     tag), so /forms/chromium/* does not exist, no chromium-* flag exists, and
-#     no browser process can be spawned;
-#   - deletes Chromium from the base image's root filesystem and from its
-#     package database, then rebuilds the image FROM scratch so the bytes
-#     actually leave the image rather than being hidden behind an overlay
-#     whiteout;
-#   - disables the "download from" feature and the webhook feature by default,
-#     leaving no code path that fetches a remote input or posts a result back
-#     out. Both remain overridable per deployment through the upstream
-#     API_DISABLE_DOWNLOAD_FROM and WEBHOOK_DISABLE environment variables.
-#
-# The LibreOffice conversion route, the PDF engines and the whole /forms/pdfengines
-# surface are untouched.
-#
-# Because the final stage is FROM scratch, it inherits no configuration from the
-# base image: every ENV, the USER, the WORKDIR and the ENTRYPOINT are declared
-# explicitly below rather than inherited. build/scrub-chromium.sh asserts that
-# the paths they point at exist, so a base image change that invalidates them
-# fails the build instead of producing a broken image.
+# LibreOffice-only Gotenberg image: no Chromium in the binary, none in the
+# image. See build/README.md.
 
 ARG GOLANG_VERSION=1.26.6
 ARG GOTENBERG_VERSION=8.36.0
 ARG BASE_IMAGE=nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg
-ARG UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
-
-# Image providing the shell and BusyBox userland the scrub stage needs. It never
-# contributes a byte to the final image - it only runs the scrub - but it is
-# pulled through Nexus from Chainguard like everything else, rather than from a
-# public registry.
 ARG SCRUB_IMAGE=nexus.int.onebrief.tools/cgr.dev/chainguard/wolfi-base:latest
-
-# Build tags for the Gotenberg binary. "nochromium" removes the Chromium module.
-# Build with --build-arg GO_BUILD_TAGS= to get the upstream module set back.
+ARG UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
 ARG GO_BUILD_TAGS=nochromium
-
-# Runtime user. The base image's own USER cannot be inherited through the
-# flattening stage, so it is pinned here; the values match upstream Gotenberg.
 ARG RUNTIME_USER=gotenberg
 ARG RUNTIME_UID=1001
 ARG RUNTIME_GID=1001
@@ -69,23 +36,19 @@ COPY pkg ./pkg
 
 RUN go build -tags "$GO_BUILD_TAGS" -o gotenberg -ldflags "-X 'github.com/gotenberg/gotenberg/v8/cmd.Version=$GOTENBERG_VERSION'" cmd/gotenberg/main.go
 
-# Fail the build if the Chromium module survived the build tags, so that the
-# image can never quietly ship a browser again.
 RUN case "$GO_BUILD_TAGS" in \
   *nochromium*) \
   if ./gotenberg --help 2>&1 | grep -qi chromium; then \
-  echo "FATAL: the binary still exposes Chromium flags despite the nochromium build tag" >&2; \
+  echo "FATAL: binary still exposes Chromium flags despite the nochromium build tag" >&2; \
   exit 1; \
   fi; \
-  echo "verified: the Gotenberg binary exposes no Chromium flags"; \
   ;; \
   esac
 
 # ----------------------------------------------
 # Base image stage
 # ----------------------------------------------
-# Nothing runs here: the Chainguard base is distroless, so it has no shell. It
-# only exists so that the next stage can copy its root filesystem out.
+# Distroless, so nothing can run here; the next stage copies its root filesystem.
 FROM $BASE_IMAGE:$GOTENBERG_VERSION AS base-stage
 
 # ----------------------------------------------
@@ -102,15 +65,8 @@ ARG RUNTIME_HOME
 COPY --from=base-stage / /rootfs
 COPY build/scrub-chromium.sh /usr/local/bin/scrub-chromium.sh
 
-# The scrub fails the build if any of the binaries the LibreOffice-only image
-# still depends on went missing.
-#
-# EXPECTED_REVERSE_DEPS: the base image's own "gotenberg" apk package declares a
-# dependency on "chromium", because upstream Gotenberg needs a browser. This
-# image does not: the binary that package installed is replaced below by one
-# built with -tags nochromium. So that dependency is knowingly left dangling,
-# and only that one - any other package depending on Chromium fails the build.
-# Nothing ever resolves it, since the image is distroless and carries no apk.
+# EXPECTED_REVERSE_DEPS: the base's own gotenberg package depends on chromium;
+# that binary is replaced below by one built without it.
 RUN chmod +x /usr/local/bin/scrub-chromium.sh &&\
   ROOTFS=/rootfs \
   RUNTIME_USER="$RUNTIME_USER" \
@@ -124,6 +80,8 @@ RUN chmod +x /usr/local/bin/scrub-chromium.sh &&\
 # ----------------------------------------------
 # Final stage
 # ----------------------------------------------
+# FROM scratch, so that the scrubbed bytes actually leave the image. Nothing is
+# inherited from the base: every ENV, USER, WORKDIR and ENTRYPOINT is declared.
 FROM scratch
 
 ARG GOTENBERG_VERSION
@@ -140,21 +98,18 @@ LABEL org.opencontainers.image.title="Gotenberg (LibreOffice-only)" \
 COPY --from=scrub-stage /rootfs /
 COPY --from=binary-stage /home/gotenberg /usr/bin/gotenberg
 
-# Mitigation for CVE-2012-5639 (LibreOffice resolving external references).
-# Note: this has to land in the runtime user's home directory. Docker does not
-# expand "~", so an unexpanded path would silently create a directory literally
-# named "~" and LibreOffice would never read the file.
+# Mitigation for CVE-2012-5639. Docker does not expand "~", so this needs the
+# real home directory or LibreOffice never reads it.
 COPY --chown=$RUNTIME_UID:0 --chmod=664 cve-fixes/cve-2012-5639/registrymodifications.xcu $RUNTIME_HOME/.config/libreoffice/4/user/registrymodifications.xcu
 
-# Nothing is inherited from the base image: declare the whole environment.
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ENV HOME=$RUNTIME_HOME
 ENV TZ=UTC
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-# Environment variables required by modules or else.
-# Note: no CHROMIUM_* variables - that module is not compiled in.
+# Environment variables required by modules or else - no CHROMIUM_*, that module
+# is not compiled in.
 ENV LIBREOFFICE_BIN_PATH=/usr/lib/libreoffice/program/soffice.bin
 ENV UNOCONVERTER_BIN_PATH=$UNOCONVERTER_BIN_PATH
 ENV PDFTK_BIN_PATH=/usr/bin/pdftk
@@ -162,10 +117,7 @@ ENV QPDF_BIN_PATH=/usr/bin/qpdf
 ENV EXIFTOOL_BIN_PATH=/usr/bin/exiftool
 ENV PDFCPU_BIN_PATH=/usr/bin/pdfcpu
 
-# No ingress of remote content and no egress back to the application: Gotenberg
-# neither fetches input documents from a URL nor posts results to a callback.
-# Both are upstream flags, so a deployment that needs them can set these back to
-# false.
+# No remote input fetching, no callbacks out. Overridable per deployment.
 ENV API_DISABLE_DOWNLOAD_FROM=true
 ENV WEBHOOK_DISABLE=true
 
@@ -175,6 +127,6 @@ WORKDIR $RUNTIME_HOME
 # Default API port.
 EXPOSE 3000
 
-# tini reaps the zombie processes left behind by LibreOffice.
+# tini reaps the zombies LibreOffice leaves behind.
 ENTRYPOINT [ "/usr/bin/tini", "--" ]
 CMD [ "/usr/bin/gotenberg" ]
