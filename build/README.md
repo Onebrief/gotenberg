@@ -17,6 +17,23 @@ holds no browser, fetches nothing from the network, and calls nothing back.
 | No ingress of remote content  | `API_DISABLE_DOWNLOAD_FROM=true`                                                                                             |
 | No egress back to the app     | `WEBHOOK_DISABLE=true`                                                                                                       |
 
+### Images this build pulls
+
+| Stage          | Image                                                            | Contributes to the final image                 |
+| -------------- | ---------------------------------------------------------------- | ---------------------------------------------- |
+| `binary-stage` | `golang:$GOLANG_VERSION`                                         | the Gotenberg binary only                      |
+| `base-stage`   | `$BASE_IMAGE:$GOTENBERG_VERSION` (Chainguard, via Nexus)         | its whole root filesystem, minus Chromium      |
+| `scrub-stage`  | `$SCRUB_IMAGE` (Chainguard `wolfi-base`, via Nexus)              | nothing - it only runs the scrub               |
+
+`$SCRUB_IMAGE` exists because the scrub needs a shell and a BusyBox userland,
+and the distroless base has neither. Nothing from it reaches the final image, but
+it is still pulled from Chainguard through Nexus rather than from a public
+registry.
+
+Note that `binary-stage` still pulls the upstream `golang` image from Docker
+Hub. That predates this change and is unchanged here; if the intent is that no
+stage pulls from a public registry, that one needs redirecting too.
+
 ### Why the image is rebuilt `FROM scratch`
 
 Deleting files in a derived layer does not remove them from the image: the base

@@ -4,8 +4,10 @@
 # filesystem, and prepare that root filesystem for a flattened, LibreOffice-only
 # image.
 #
-# This runs inside a BusyBox build stage, against a copy of the base image's
-# root filesystem (see build/Dockerfile.bc). It deliberately does *not* run
+# It is POSIX sh and expects only a BusyBox-level userland (awk, find, du,
+# mktemp, sort, sed, grep, chown/chgrp/chmod). It runs in a throwaway Wolfi
+# build stage, against a copy of the base image's root filesystem (see
+# build/Dockerfile.bc). It deliberately does *not* run
 # inside the base image itself: the Chainguard base is distroless, so it has no
 # shell, and the final image is rebuilt "FROM scratch" from the scrubbed tree.
 # That is what makes the removal an actual size reduction rather than an overlay
@@ -233,19 +235,23 @@ done
 # CVEs against an image that no longer contains Chromium.
 
 if [ -n "$APK_DB" ] && [ -s "$WORK/packages" ]; then
+	# Note: buffered line by line rather than with awk paragraph mode (RS = ""),
+	# which BusyBox awk does not implement.
 	awk -v re="$PKG_REGEX" '
-		BEGIN { RS = ""; ORS = "\n\n" }
-		{
-			name = ""
-			n = split($0, lines, "\n")
-			for (i = 1; i <= n; i++) {
-				if (substr(lines[i], 1, 2) == "P:") {
-					name = substr(lines[i], 3)
-					break
-				}
+		function flush(  i) {
+			if (n > 0 && (name == "" || name !~ re)) {
+				for (i = 1; i <= n; i++) print buf[i]
+				print ""
 			}
-			if (name == "" || name !~ re) print
+			n = 0
+			name = ""
 		}
+		$0 == "" { flush(); next }
+		{
+			buf[++n] = $0
+			if (substr($0, 1, 2) == "P:") name = substr($0, 3)
+		}
+		END { flush() }
 	' "$APK_DB" >"$WORK/installed.new"
 	cat "$WORK/installed.new" >"$APK_DB"
 	log "pruned apk database"
@@ -253,19 +259,23 @@ fi
 
 if [ -n "$DPKG_DB" ] && [ -s "$WORK/packages" ]; then
 	awk -v re="$PKG_REGEX" '
-		BEGIN { RS = ""; ORS = "\n\n" }
-		{
-			name = ""
-			n = split($0, lines, "\n")
-			for (i = 1; i <= n; i++) {
-				if (lines[i] ~ /^Package: /) {
-					name = lines[i]
-					sub(/^Package: */, "", name)
-					break
-				}
+		function flush(  i) {
+			if (n > 0 && (name == "" || name !~ re)) {
+				for (i = 1; i <= n; i++) print buf[i]
+				print ""
 			}
-			if (name == "" || name !~ re) print
+			n = 0
+			name = ""
 		}
+		$0 == "" { flush(); next }
+		{
+			buf[++n] = $0
+			if ($0 ~ /^Package: /) {
+				name = $0
+				sub(/^Package: */, "", name)
+			}
+		}
+		END { flush() }
 	' "$DPKG_DB" >"$WORK/status.new"
 	cat "$WORK/status.new" >"$DPKG_DB"
 

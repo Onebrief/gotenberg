@@ -26,8 +26,13 @@
 ARG GOLANG_VERSION=1.26.6
 ARG GOTENBERG_VERSION=8.36.0
 ARG BASE_IMAGE=nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg
-ARG BUSYBOX_IMAGE=busybox:stable-uclibc
 ARG UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
+
+# Image providing the shell and BusyBox userland the scrub stage needs. It never
+# contributes a byte to the final image - it only runs the scrub - but it is
+# pulled through Nexus from Chainguard like everything else, rather than from a
+# public registry.
+ARG SCRUB_IMAGE=nexus.int.onebrief.tools/cgr.dev/chainguard/wolfi-base:latest
 
 # Build tags for the Gotenberg binary. "nochromium" removes the Chromium module.
 # Build with --build-arg GO_BUILD_TAGS= to get the upstream module set back.
@@ -86,7 +91,7 @@ FROM $BASE_IMAGE:$GOTENBERG_VERSION AS base-stage
 # ----------------------------------------------
 # Chromium scrub stage
 # ----------------------------------------------
-FROM $BUSYBOX_IMAGE AS scrub-stage
+FROM $SCRUB_IMAGE AS scrub-stage
 
 ARG UNOCONVERTER_BIN_PATH
 ARG RUNTIME_USER
