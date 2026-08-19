@@ -29,9 +29,10 @@
 #   RUNTIME_USER      Name of the unprivileged user the image runs as.
 #   RUNTIME_UID/GID   Numeric ids for that user, created if absent.
 #   RUNTIME_HOME      Home directory for that user, created if absent.
-#   ALLOW_REVERSE_DEPS
-#                     Set to "true" to continue even if a surviving package
-#                     declares a dependency on a removed one.
+#   EXPECTED_REVERSE_DEPS
+#                     Packages whose declared dependency on a removed package is
+#                     known and acceptable. Any *other* package depending on a
+#                     removed one fails the build.
 
 set -eu
 
@@ -43,7 +44,7 @@ RUNTIME_USER="${RUNTIME_USER:-gotenberg}"
 RUNTIME_UID="${RUNTIME_UID:-1001}"
 RUNTIME_GID="${RUNTIME_GID:-1001}"
 RUNTIME_HOME="${RUNTIME_HOME:-/home/gotenberg}"
-ALLOW_REVERSE_DEPS="${ALLOW_REVERSE_DEPS:-false}"
+EXPECTED_REVERSE_DEPS="${EXPECTED_REVERSE_DEPS:-}"
 
 WORK="$(mktemp -d)"
 
@@ -175,12 +176,30 @@ else
 fi
 
 if [ -s "$WORK/reverse-deps" ]; then
-	log "surviving packages declare a dependency on a package being removed:"
-	sed 's/^/[scrub]   ! /' "$WORK/reverse-deps"
-	if [ "$ALLOW_REVERSE_DEPS" != "true" ]; then
-		die "refusing to break those packages; rebuild with ALLOW_REVERSE_DEPS=true if this is expected"
+	: >"$WORK/reverse-deps-unexpected"
+
+	while read -r line; do
+		[ -n "$line" ] || continue
+		dependent="${line%% *}"
+		expected="false"
+		for allowed in $EXPECTED_REVERSE_DEPS; do
+			if [ "$dependent" = "$allowed" ]; then
+				expected="true"
+				break
+			fi
+		done
+		if [ "$expected" = "true" ]; then
+			log "expected reverse dependency, left dangling on purpose: $line"
+		else
+			echo "$line" >>"$WORK/reverse-deps-unexpected"
+		fi
+	done <"$WORK/reverse-deps"
+
+	if [ -s "$WORK/reverse-deps-unexpected" ]; then
+		log "surviving packages declare an unexpected dependency on a package being removed:"
+		sed 's/^/[scrub]   ! /' "$WORK/reverse-deps-unexpected"
+		die "refusing to break those packages; list them in EXPECTED_REVERSE_DEPS if this is intended"
 	fi
-	log "WARNING: continuing anyway because ALLOW_REVERSE_DEPS=true"
 fi
 
 # ----------------------------------------------

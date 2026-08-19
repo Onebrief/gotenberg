@@ -99,12 +99,20 @@ COPY build/scrub-chromium.sh /usr/local/bin/scrub-chromium.sh
 
 # The scrub fails the build if any of the binaries the LibreOffice-only image
 # still depends on went missing.
+#
+# EXPECTED_REVERSE_DEPS: the base image's own "gotenberg" apk package declares a
+# dependency on "chromium", because upstream Gotenberg needs a browser. This
+# image does not: the binary that package installed is replaced below by one
+# built with -tags nochromium. So that dependency is knowingly left dangling,
+# and only that one - any other package depending on Chromium fails the build.
+# Nothing ever resolves it, since the image is distroless and carries no apk.
 RUN chmod +x /usr/local/bin/scrub-chromium.sh &&\
   ROOTFS=/rootfs \
   RUNTIME_USER="$RUNTIME_USER" \
   RUNTIME_UID="$RUNTIME_UID" \
   RUNTIME_GID="$RUNTIME_GID" \
   RUNTIME_HOME="$RUNTIME_HOME" \
+  EXPECTED_REVERSE_DEPS="gotenberg" \
   REQUIRED_PATHS="/usr/bin/tini /usr/lib/libreoffice/program/soffice.bin $UNOCONVERTER_BIN_PATH /usr/bin/pdftk /usr/bin/qpdf /usr/bin/exiftool /usr/bin/pdfcpu" \
   /usr/local/bin/scrub-chromium.sh
 

@@ -36,6 +36,21 @@ The runtime user is pinned to `gotenberg` (uid/gid 1001), matching upstream. If
 the base image already defines that user at a different uid, the build fails and
 names the uid to pass as `--build-arg RUNTIME_UID=`.
 
+### The one dangling package dependency
+
+The base image's own `gotenberg` apk package declares a dependency on
+`chromium`, because upstream Gotenberg needs a browser. Removing the Chromium
+package therefore leaves that dependency unsatisfied. This is deliberate and
+inert: the binary that package installed is overwritten by one built with
+`-tags nochromium`, and the image is distroless, so it carries no `apk` that
+could ever try to resolve it.
+
+The scrub only tolerates it because `Dockerfile.bc` names it in
+`EXPECTED_REVERSE_DEPS`. Any *other* surviving package that depends on Chromium
+fails the build, before anything has been deleted - which is what should happen,
+since it would mean the base image grew a component that genuinely needs a
+browser.
+
 Every binary in `REQUIRED_PATHS` except `tini` is one that Gotenberg itself
 stats at startup, so the base image must already carry it or the current image
 would not boot. `tini` is the exception: it is only referenced by the
