@@ -11,10 +11,16 @@ build: ## Build the Gotenberg's Docker image
 	-f $(DOCKERFILE) $(DOCKER_BUILD_CONTEXT)
 
 .PHONY: build-bc
-build-bc: ## Build the LibreOffice-only Docker image - the one shipped by the ci workflow
+build-bc: ## Build the Docker image shipped by the ci workflow
 	docker build \
 	-t $(DOCKER_REGISTRY)/$(DOCKER_REPOSITORY):$(GOTENBERG_VERSION)-bc \
 	-f $(DOCKERFILE_BC) $(DOCKER_BUILD_CONTEXT)
+
+.PHONY: build-bc-nochromium
+build-bc-nochromium: ## Build the LibreOffice-only variant of the ci image
+	docker build \
+	-t $(DOCKER_REGISTRY)/$(DOCKER_REPOSITORY):$(GOTENBERG_VERSION)-bc-nochromium \
+	-f $(DOCKERFILE_BC_NOCHROMIUM) $(DOCKER_BUILD_CONTEXT)
 
 TZ=UTC
 GOTENBERG_HIDE_BANNER=false

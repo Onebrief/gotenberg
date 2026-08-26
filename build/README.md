@@ -1,11 +1,25 @@
-# The LibreOffice-only image (`Dockerfile.bc`)
+# The two images this fork ships
 
-`build/Dockerfile.bc` is the only image this fork ships. It is built by
-`.github/workflows/ci.yml` and pushed to `nexus.int.onebrief.tools/ob/gotenberg`.
+`.github/workflows/ci.yml` builds two variants and pushes both to
+`nexus.int.onebrief.tools/ob/gotenberg`, distinguished only by tag suffix:
 
-It is upstream Gotenberg with the Chromium half removed: document conversion via
-LibreOffice and the PDF engines still works exactly as before, but the container
-holds no browser, fetches nothing from the network, and calls nothing back.
+| Variant                     | Dockerfile                       | Tags                                       |
+| --------------------------- | -------------------------------- | ------------------------------------------ |
+| Full (Chromium + LibreOffice) | `build/Dockerfile.bc`            | unchanged - `main-bc`, `8.36.0`, `8.36`, … |
+| LibreOffice-only            | `build/Dockerfile.bc-nochromium` | the same, suffixed `-nochromium`           |
+
+The full image is the one this fork has always shipped, and `Dockerfile.bc` is
+unchanged. Nothing about existing deployments moves; consuming the
+LibreOffice-only build is opt-in, by pulling a `-nochromium` tag.
+
+The rest of this document describes the LibreOffice-only variant. It is upstream
+Gotenberg with the Chromium half removed: document conversion via LibreOffice and
+the PDF engines works exactly as before, but the container holds no browser,
+fetches nothing from the network, and calls nothing back.
+
+Both variants pin the same `GOLANG_VERSION`, `GOTENBERG_VERSION` and
+`BASE_IMAGE`; a version bump has to touch both files, and the `Dockerfile drift`
+CI job fails the build if they disagree.
 
 ## What changed, and why each piece is there
 
@@ -44,7 +58,7 @@ extract the root filesystem, scrub it, and reassemble a single flattened layer.
 
 The cost of flattening is that the final stage inherits no configuration from
 the base image. Every `ENV`, plus `USER`, `WORKDIR`, `EXPOSE` and `ENTRYPOINT`,
-is therefore declared explicitly in `Dockerfile.bc`, and `scrub-chromium.sh`
+is therefore declared explicitly in `Dockerfile.bc-nochromium`, and `scrub-chromium.sh`
 fails the build if any path they point at is missing (`REQUIRED_PATHS`). A base
 image change that would invalidate them breaks the build rather than producing
 an image that starts and then fails on the first conversion.
@@ -62,7 +76,7 @@ inert: the binary that package installed is overwritten by one built with
 `-tags nochromium`, and the image is distroless, so it carries no `apk` that
 could ever try to resolve it.
 
-The scrub only tolerates it because `Dockerfile.bc` names it in
+The scrub only tolerates it because `Dockerfile.bc-nochromium` names it in
 `EXPECTED_REVERSE_DEPS`. Any *other* surviving package that depends on Chromium
 fails the build, before anything has been deleted - which is what should happen,
 since it would mean the base image grew a component that genuinely needs a
@@ -81,7 +95,7 @@ with `shareProcessNamespace`).
 ## Verifying a build
 
 ```sh
-IMAGE=nexus.int.onebrief.tools/ob/gotenberg:<tag>
+IMAGE=nexus.int.onebrief.tools/ob/gotenberg:<tag>-nochromium
 
 # No Chromium module: no chromium-* flags, no /forms/chromium/* routes.
 docker run --rm --entrypoint /usr/bin/gotenberg "$IMAGE" --help | grep -i chromium   # expect no match
@@ -112,11 +126,11 @@ silently go missing. Compare the two:
 docker inspect --format '{{json .Config.Env}}' \
   nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg:8.36.0 | tr ',' '\n'
 docker inspect --format '{{json .Config.Env}}' \
-  nexus.int.onebrief.tools/ob/gotenberg:<tag> | tr ',' '\n'
+  nexus.int.onebrief.tools/ob/gotenberg:<tag>-nochromium | tr ',' '\n'
 ```
 
 Anything present on the left and absent on the right belongs in the `ENV` block
-of `Dockerfile.bc`. The same check on `.Config.Entrypoint`, `.Config.User` and
+of `Dockerfile.bc-nochromium`. The same check on `.Config.Entrypoint`, `.Config.User` and
 `.Config.WorkingDir` is worth doing once per base image bump.
 
 ## Reverting or relaxing parts of it

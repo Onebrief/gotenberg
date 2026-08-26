@@ -20,14 +20,51 @@ permissions:
   security-events: write
 
 jobs:
+  check-dockerfile-drift:
+    name: Dockerfile drift
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: audit
+
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #v4.2.2
+
+      - name: The two variants must pin the same versions and base image
+        shell: bash
+        run: |
+          status=0
+          for arg in GOLANG_VERSION GOTENBERG_VERSION BASE_IMAGE; do
+            a=$(grep -m1 "^ARG $arg=" build/Dockerfile.bc | cut -d= -f2-)
+            b=$(grep -m1 "^ARG $arg=" build/Dockerfile.bc-nochromium | cut -d= -f2-)
+            if [ "$a" != "$b" ]; then
+              echo "::error::$arg differs - Dockerfile.bc has '$a', Dockerfile.bc-nochromium has '$b'"
+              status=1
+            fi
+          done
+          exit $status
+
   build-docker-image:
     name: Docker build
     runs-on: ${{ matrix.type == 'arm' && 'ubuntu-arm-24.04-4core' || 'ubuntu-latest' }}
+    needs:
+      - check-dockerfile-drift
     strategy:
+      fail-fast: false
       matrix:
         type:
           - arm
           - x86
+        variant:
+          - chromium
+          - nochromium
+        include:
+          - variant: chromium
+            dockerfile: ./build/Dockerfile.bc
+          - variant: nochromium
+            dockerfile: ./build/Dockerfile.bc-nochromium
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -72,6 +109,7 @@ jobs:
         with:
           images: |
             nexus.int.onebrief.tools/ob/gotenberg
+          flavor: ${{ matrix.variant == 'nochromium' && 'suffix=-nochromium,onlatest=true' || '' }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -85,7 +123,7 @@ jobs:
         uses: docker/build-push-action@14487ce63c7a62a4a324b0bfb37086795e31c6c1 #v6.16.0
         with:
           context: .
-          file: ./build/Dockerfile.bc
+          file: ${{ matrix.dockerfile }}
           build-args: |
             BASE_IMAGE=nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg
             UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
@@ -97,7 +135,7 @@ jobs:
         id: setout
         shell: bash
         env:
-          reponame: ob/gotenberg-${{ matrix.type }}
+          reponame: ob/gotenberg-${{ matrix.variant }}-${{ matrix.type }}
         run: |
           echo "image=${{ fromJSON(steps.meta.outputs.json).tags[0] }}" >> $GITHUB_OUTPUT
           echo "digestname=${reponame/\//-}" >> $GITHUB_OUTPUT
@@ -131,12 +169,21 @@ jobs:
         uses: github/codeql-action/upload-sarif@7e3036b9cd87fc26dd06747b7aa4b96c27aaef3a #v3.28.17
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
+          # Without distinct categories the two variants overwrite each other's
+          # findings in code scanning.
+          category: ${{ matrix.variant }}
 
   merge:
     name: Merge
     runs-on: ubuntu-latest
     needs:
       - build-docker-image
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - chromium
+          - nochromium
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
@@ -150,7 +197,7 @@ jobs:
         id: calculate
         shell: bash
         env:
-          reponame: ob/gotenberg
+          reponame: ob/gotenberg-${{ matrix.variant }}
         run: |
           echo "digestname=${reponame/\//-}" >> $GITHUB_OUTPUT
 
@@ -176,6 +223,7 @@ jobs:
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 #v5.7.0
         with:
           images: nexus.int.onebrief.tools/ob/gotenberg
+          flavor: ${{ matrix.variant == 'nochromium' && 'suffix=-nochromium,onlatest=true' || '' }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr

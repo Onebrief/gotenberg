@@ -12,5 +12,5 @@ package standard
 // behavior, so the default build stays identical to Gotenberg's.
 //
 // This is the mechanism behind the LibreOffice-only image built by
-// build/Dockerfile.bc.
+// build/Dockerfile.bc-nochromium.
 import _ "github.com/gotenberg/gotenberg/v8/pkg/modules/chromium"

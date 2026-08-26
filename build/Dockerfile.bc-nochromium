@@ -1,0 +1,135 @@
+# LibreOffice-only variant of Dockerfile.bc: no Chromium in the binary, none in
+# the image. Shipped alongside it under -nochromium tags. See build/README.md.
+#
+# Keep GOLANG_VERSION, GOTENBERG_VERSION and BASE_IMAGE in step with
+# Dockerfile.bc; ci.yml fails the build if they drift.
+
+ARG GOLANG_VERSION=1.26.6
+ARG GOTENBERG_VERSION=8.36.0
+ARG BASE_IMAGE=nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg
+ARG SCRUB_IMAGE=nexus.int.onebrief.tools/cgr.dev/chainguard/wolfi-base:latest
+ARG UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
+ARG GO_BUILD_TAGS=nochromium
+ARG RUNTIME_USER=gotenberg
+ARG RUNTIME_UID=1001
+ARG RUNTIME_GID=1001
+ARG RUNTIME_HOME=/home/gotenberg
+
+# ----------------------------------------------
+# Gotenberg binary build stage
+# ----------------------------------------------
+FROM golang:$GOLANG_VERSION AS binary-stage
+
+ARG GOTENBERG_VERSION
+ARG GO_BUILD_TAGS
+ENV CGO_ENABLED=0
+
+# Define the working directory outside of $GOPATH (we're using go modules).
+WORKDIR /home
+
+# Install module dependencies.
+COPY go.mod go.sum ./
+
+RUN go mod download &&\
+  go mod verify
+
+# Copy the source code.
+COPY cmd ./cmd
+COPY pkg ./pkg
+
+RUN go build -tags "$GO_BUILD_TAGS" -o gotenberg -ldflags "-X 'github.com/gotenberg/gotenberg/v8/cmd.Version=$GOTENBERG_VERSION'" cmd/gotenberg/main.go
+
+RUN case "$GO_BUILD_TAGS" in \
+  *nochromium*) \
+  if ./gotenberg --help 2>&1 | grep -qi chromium; then \
+  echo "FATAL: binary still exposes Chromium flags despite the nochromium build tag" >&2; \
+  exit 1; \
+  fi; \
+  ;; \
+  esac
+
+# ----------------------------------------------
+# Base image stage
+# ----------------------------------------------
+# Distroless, so nothing can run here; the next stage copies its root filesystem.
+FROM $BASE_IMAGE:$GOTENBERG_VERSION AS base-stage
+
+# ----------------------------------------------
+# Chromium scrub stage
+# ----------------------------------------------
+FROM $SCRUB_IMAGE AS scrub-stage
+
+ARG UNOCONVERTER_BIN_PATH
+ARG RUNTIME_USER
+ARG RUNTIME_UID
+ARG RUNTIME_GID
+ARG RUNTIME_HOME
+
+COPY --from=base-stage / /rootfs
+COPY build/scrub-chromium.sh /usr/local/bin/scrub-chromium.sh
+
+# EXPECTED_REVERSE_DEPS: the base's own gotenberg package depends on chromium;
+# that binary is replaced below by one built without it.
+RUN chmod +x /usr/local/bin/scrub-chromium.sh &&\
+  ROOTFS=/rootfs \
+  RUNTIME_USER="$RUNTIME_USER" \
+  RUNTIME_UID="$RUNTIME_UID" \
+  RUNTIME_GID="$RUNTIME_GID" \
+  RUNTIME_HOME="$RUNTIME_HOME" \
+  EXPECTED_REVERSE_DEPS="gotenberg" \
+  REQUIRED_PATHS="/usr/bin/tini /usr/lib/libreoffice/program/soffice.bin $UNOCONVERTER_BIN_PATH /usr/bin/pdftk /usr/bin/qpdf /usr/bin/exiftool /usr/bin/pdfcpu" \
+  /usr/local/bin/scrub-chromium.sh
+
+# ----------------------------------------------
+# Final stage
+# ----------------------------------------------
+# FROM scratch, so that the scrubbed bytes actually leave the image. Nothing is
+# inherited from the base: every ENV, USER, WORKDIR and ENTRYPOINT is declared.
+FROM scratch
+
+ARG GOTENBERG_VERSION
+ARG UNOCONVERTER_BIN_PATH
+ARG RUNTIME_USER
+ARG RUNTIME_UID
+ARG RUNTIME_GID
+ARG RUNTIME_HOME
+
+LABEL org.opencontainers.image.title="Gotenberg (LibreOffice-only)" \
+  org.opencontainers.image.description="A containerized API for seamless PDF conversion, without Chromium." \
+  org.opencontainers.image.version="$GOTENBERG_VERSION"
+
+COPY --from=scrub-stage /rootfs /
+COPY --from=binary-stage /home/gotenberg /usr/bin/gotenberg
+
+# Mitigation for CVE-2012-5639. Docker does not expand "~", so this needs the
+# real home directory or LibreOffice never reads it.
+COPY --chown=$RUNTIME_UID:0 --chmod=664 cve-fixes/cve-2012-5639/registrymodifications.xcu $RUNTIME_HOME/.config/libreoffice/4/user/registrymodifications.xcu
+
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV HOME=$RUNTIME_HOME
+ENV TZ=UTC
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# Environment variables required by modules or else - no CHROMIUM_*, that module
+# is not compiled in.
+ENV LIBREOFFICE_BIN_PATH=/usr/lib/libreoffice/program/soffice.bin
+ENV UNOCONVERTER_BIN_PATH=$UNOCONVERTER_BIN_PATH
+ENV PDFTK_BIN_PATH=/usr/bin/pdftk
+ENV QPDF_BIN_PATH=/usr/bin/qpdf
+ENV EXIFTOOL_BIN_PATH=/usr/bin/exiftool
+ENV PDFCPU_BIN_PATH=/usr/bin/pdfcpu
+
+# No remote input fetching, no callbacks out. Overridable per deployment.
+ENV API_DISABLE_DOWNLOAD_FROM=true
+ENV WEBHOOK_DISABLE=true
+
+USER $RUNTIME_USER
+WORKDIR $RUNTIME_HOME
+
+# Default API port.
+EXPOSE 3000
+
+# tini reaps the zombies LibreOffice leaves behind.
+ENTRYPOINT [ "/usr/bin/tini", "--" ]
+CMD [ "/usr/bin/gotenberg" ]
