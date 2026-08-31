@@ -4,7 +4,7 @@
 # Keep GOLANG_VERSION, GOTENBERG_VERSION and BASE_IMAGE in step with
 # Dockerfile.bc; ci.yml fails the build if they drift.
 
-ARG GOLANG_VERSION=1.26.6
+ARG GOLANG_VERSION=1.26.7
 ARG GOTENBERG_VERSION=8.36.0
 ARG BASE_IMAGE=nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg
 ARG SCRUB_IMAGE=nexus.int.onebrief.tools/cgr.dev/chainguard/wolfi-base:latest
