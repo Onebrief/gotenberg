@@ -24,7 +24,10 @@ RUN go mod download &&\
 COPY cmd ./cmd
 COPY pkg ./pkg
 
-RUN go build -o gotenberg -ldflags "-X 'github.com/gotenberg/gotenberg/v8/cmd.Version=$GOTENBERG_VERSION'" cmd/gotenberg/main.go
+# "-s -w" drops the symbol table and DWARF, which keeps the binary under
+# ClamAV's 25 MiB MaxFileSize; over that, the malware scan gives up and reports
+# Heuristics.Limits.Exceeded.MaxFileSize
+RUN go build -trimpath -o gotenberg -ldflags "-s -w -X 'github.com/gotenberg/gotenberg/v8/cmd.Version=$GOTENBERG_VERSION'" cmd/gotenberg/main.go
 
 # ----------------------------------------------
 # Copy binary to chainguard base
