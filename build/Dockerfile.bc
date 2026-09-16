@@ -26,7 +26,7 @@ COPY pkg ./pkg
 
 # "-s -w" drops the symbol table and DWARF, which keeps the binary under
 # ClamAV's 25 MiB MaxFileSize; over that, the malware scan gives up and reports
-# Heuristics.Limits.Exceeded.MaxFileSize
+# Heuristics.Limits.Exceeded.MaxFileSize #
 RUN go build -trimpath -o gotenberg -ldflags "-s -w -X 'github.com/gotenberg/gotenberg/v8/cmd.Version=$GOTENBERG_VERSION'" cmd/gotenberg/main.go
 
 # ----------------------------------------------
