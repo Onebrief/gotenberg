@@ -40,7 +40,7 @@ set -eu
 
 ROOTFS="${ROOTFS:-/rootfs}"
 PKG_REGEX="${PKG_REGEX:-^chromium(-.*)?$}"
-SWEEP_PATHS="${SWEEP_PATHS:-/usr/bin/chromium /usr/bin/chromium-browser /usr/bin/chrome /usr/lib/chromium /usr/lib/chromium-browser /usr/lib64/chromium /usr/share/chromium /opt/chromium /opt/gotenberg/chromium-hyphen-data}"
+SWEEP_PATHS="${SWEEP_PATHS:-/usr/bin/chromium /usr/bin/chromium-browser /usr/bin/chrome /usr/lib/chromium /usr/lib/chromium-browser /usr/lib64/chromium /usr/share/chromium /opt/chromium /opt/gotenberg/chromium-hyphen-data /usr/bin/gotenberg /usr/bin/gotenberg.bin}"
 REQUIRED_PATHS="${REQUIRED_PATHS:-}"
 RUNTIME_USER="${RUNTIME_USER:-gotenberg}"
 RUNTIME_UID="${RUNTIME_UID:-1001}"
