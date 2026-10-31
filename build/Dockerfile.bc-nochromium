@@ -5,7 +5,7 @@
 # Dockerfile.bc; ci.yml fails the build if they drift.
 
 ARG GOLANG_VERSION=1.27.2
-ARG GOTENBERG_VERSION=8.37.0
+ARG GOTENBERG_VERSION=8.38.1
 ARG BASE_IMAGE=nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg
 ARG SCRUB_IMAGE=nexus.int.onebrief.tools/cgr.dev/chainguard/wolfi-base:latest
 ARG UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
