@@ -1,6 +1,8 @@
 ARG GOLANG_VERSION=1.27.3
 ARG GOTENBERG_VERSION=8.39.0
 ARG BASE_IMAGE=nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg
+# Runtime security refresh; the forked API binary version remains independent.
+ARG BASE_IMAGE_VERSION=8.40.0@sha256:998a7bac60549c81fdf774907ae877db1e941462cde2c8e5ce6df61d1504b550
 ARG UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
 
 # ----------------------------------------------
@@ -29,7 +31,7 @@ RUN go build -o gotenberg -ldflags "-X 'github.com/gotenberg/gotenberg/v8/cmd.Ve
 # ----------------------------------------------
 # Copy binary to chainguard base
 # ----------------------------------------------
-FROM $BASE_IMAGE:$GOTENBERG_VERSION AS chainguard-base
+FROM $BASE_IMAGE:$BASE_IMAGE_VERSION AS chainguard-base
 ARG UNOCONVERTER_BIN_PATH
 
 COPY --from=binary-stage /home/gotenberg /usr/bin/

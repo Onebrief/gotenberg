@@ -18,7 +18,7 @@ the PDF engines works exactly as before, but the container holds no browser,
 fetches nothing from the network, and calls nothing back.
 
 Both variants pin the same `GOLANG_VERSION`, `GOTENBERG_VERSION` and
-`BASE_IMAGE`; a version bump has to touch both files, and the `Dockerfile drift`
+`BASE_IMAGE` and `BASE_IMAGE_VERSION`; a version bump has to touch both files, and the `Dockerfile drift`
 CI job fails the build if they disagree.
 
 ## What changed, and why each piece is there
@@ -36,7 +36,7 @@ CI job fails the build if they disagree.
 | Stage          | Image                                                            | Contributes to the final image                 |
 | -------------- | ---------------------------------------------------------------- | ---------------------------------------------- |
 | `binary-stage` | `golang:$GOLANG_VERSION`                                         | the Gotenberg binary only                      |
-| `base-stage`   | `$BASE_IMAGE:$GOTENBERG_VERSION` (Chainguard, via Nexus)         | its whole root filesystem, minus Chromium      |
+| `base-stage`   | `$BASE_IMAGE:$BASE_IMAGE_VERSION` (Chainguard, via Nexus)         | its whole root filesystem, minus Chromium      |
 | `scrub-stage`  | `$SCRUB_IMAGE` (Chainguard `wolfi-base`, via Nexus)              | nothing - it only runs the scrub               |
 
 `$SCRUB_IMAGE` exists because the scrub needs a shell and a BusyBox userland,
@@ -47,6 +47,10 @@ registry.
 Note that `binary-stage` still pulls the upstream `golang` image from Docker
 Hub. That predates this change and is unchanged here; if the intent is that no
 stage pulls from a public registry, that one needs redirecting too.
+
+The vendor runtime is pinned separately from the forked API binary. Runtime
+8.40.0 supplies the patched Expat packages while the binary retains this
+fork's existing API version. Both Dockerfiles use the same runtime digest.
 
 ### Why the image is rebuilt `FROM scratch`
 
