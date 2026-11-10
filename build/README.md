@@ -18,8 +18,9 @@ the PDF engines works exactly as before, but the container holds no browser,
 fetches nothing from the network, and calls nothing back.
 
 Both variants pin the same `GOLANG_VERSION`, `GOTENBERG_VERSION` and
-`BASE_IMAGE` and `BASE_IMAGE_VERSION`; a version bump has to touch both files, and the `Dockerfile drift`
-CI job fails the build if they disagree.
+`BASE_IMAGE` and `BASE_IMAGE_VERSION`; a version bump has to touch both files.
+The existing `Dockerfile drift` CI job checks the original arguments; reviewers
+should also compare the independent runtime version/digest.
 
 ## What changed, and why each piece is there
 

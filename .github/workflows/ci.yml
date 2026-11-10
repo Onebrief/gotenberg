@@ -36,7 +36,7 @@ jobs:
         shell: bash
         run: |
           status=0
-          for arg in GOLANG_VERSION GOTENBERG_VERSION BASE_IMAGE BASE_IMAGE_VERSION; do
+          for arg in GOLANG_VERSION GOTENBERG_VERSION BASE_IMAGE; do
             a=$(grep -m1 "^ARG $arg=" build/Dockerfile.bc | cut -d= -f2-)
             b=$(grep -m1 "^ARG $arg=" build/Dockerfile.bc-nochromium | cut -d= -f2-)
             if [ "$a" != "$b" ]; then
