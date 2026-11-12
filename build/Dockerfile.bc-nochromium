@@ -1,12 +1,15 @@
 # LibreOffice-only variant of Dockerfile.bc: no Chromium in the binary, none in
 # the image. Shipped alongside it under -nochromium tags. See build/README.md.
 #
-# Keep GOLANG_VERSION, GOTENBERG_VERSION and BASE_IMAGE in step with
+# Keep the Go version, binary version, base image and runtime pin in step with
 # Dockerfile.bc; ci.yml fails the build if they drift.
 
 ARG GOLANG_VERSION=1.27.3
+# Version embedded in the binary built from our fork; independent of the runtime.
 ARG GOTENBERG_VERSION=8.39.0
 ARG BASE_IMAGE=nexus.int.onebrief.tools/cgr.dev/onebrief.com/gotenberg
+# Vendor runtime tag/digest for libraries and tools; we replace its Gotenberg binary.
+ARG BASE_IMAGE_VERSION=8.40.0@sha256:998a7bac60549c81fdf774907ae877db1e941462cde2c8e5ce6df61d1504b550
 ARG SCRUB_IMAGE=nexus.int.onebrief.tools/cgr.dev/chainguard/wolfi-base:latest
 ARG UNOCONVERTER_BIN_PATH=/usr/bin/unoconv
 ARG GO_BUILD_TAGS=nochromium
@@ -52,7 +55,7 @@ RUN case "$GO_BUILD_TAGS" in \
 # Base image stage
 # ----------------------------------------------
 # Distroless, so nothing can run here; the next stage copies its root filesystem.
-FROM $BASE_IMAGE:$GOTENBERG_VERSION AS base-stage
+FROM $BASE_IMAGE:$BASE_IMAGE_VERSION AS base-stage
 
 # ----------------------------------------------
 # Chromium scrub stage
