@@ -17,10 +17,9 @@ Gotenberg with the Chromium half removed: document conversion via LibreOffice an
 the PDF engines works exactly as before, but the container holds no browser,
 fetches nothing from the network, and calls nothing back.
 
-Both variants pin the same `GOLANG_VERSION`, `GOTENBERG_VERSION` and
+Both variants pin the same `GOLANG_VERSION`, `GOTENBERG_VERSION`,
 `BASE_IMAGE` and `BASE_IMAGE_VERSION`; a version bump has to touch both files.
-The existing `Dockerfile drift` CI job checks the original arguments; reviewers
-should also compare the independent runtime version/digest.
+The `Dockerfile drift` CI job fails if any of these arguments differ.
 
 ## What changed, and why each piece is there
 
@@ -34,11 +33,11 @@ should also compare the independent runtime version/digest.
 
 ### Images this build pulls
 
-| Stage          | Image                                                            | Contributes to the final image                 |
-| -------------- | ---------------------------------------------------------------- | ---------------------------------------------- |
-| `binary-stage` | `golang:$GOLANG_VERSION`                                         | the Gotenberg binary only                      |
-| `base-stage`   | `$BASE_IMAGE:$BASE_IMAGE_VERSION` (Chainguard, via Nexus)         | its whole root filesystem, minus Chromium      |
-| `scrub-stage`  | `$SCRUB_IMAGE` (Chainguard `wolfi-base`, via Nexus)              | nothing - it only runs the scrub               |
+| Stage          | Image                                                     | Contributes to the final image            |
+| -------------- | --------------------------------------------------------- | ----------------------------------------- |
+| `binary-stage` | `golang:$GOLANG_VERSION`                                  | the Gotenberg binary only                 |
+| `base-stage`   | `$BASE_IMAGE:$BASE_IMAGE_VERSION` (Chainguard, via Nexus) | its whole root filesystem, minus Chromium |
+| `scrub-stage`  | `$SCRUB_IMAGE` (Chainguard `wolfi-base`, via Nexus)       | nothing - it only runs the scrub          |
 
 `$SCRUB_IMAGE` exists because the scrub needs a shell and a BusyBox userland,
 and the distroless base has neither. Nothing from it reaches the final image, but

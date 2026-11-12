@@ -1,7 +1,7 @@
 # LibreOffice-only variant of Dockerfile.bc: no Chromium in the binary, none in
 # the image. Shipped alongside it under -nochromium tags. See build/README.md.
 #
-# Keep GOLANG_VERSION, GOTENBERG_VERSION and BASE_IMAGE in step with
+# Keep the Go version, binary version, base image and runtime pin in step with
 # Dockerfile.bc; ci.yml fails the build if they drift.
 
 ARG GOLANG_VERSION=1.27.3
